@@ -17,14 +17,18 @@ export default function VerifyOtpPage() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ otp }),
+      body: JSON.stringify({
+        email: "admin@example.com",
+        otp,
+      }),
     });
 
     const data = await response.json();
 
     if (data.success) {
-      localStorage.setItem("token", data.token);
       router.push("/books");
+    } else {
+      alert(data.message);
     }
   }
 

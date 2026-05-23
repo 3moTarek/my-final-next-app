@@ -4,17 +4,28 @@ import { createOtp } from "@/lib/auth";
 import { comparePasswords } from "@/lib/hash";
 import { sendOtpEmail } from "@/lib/email";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { saveOtp } from "@/lib/otpStore";
 
-const mockUser = {
-  email: "admin@example.com",
-  password:
-    "$2b$10$FmGnD/K.7egV1FmtCqZfE.I3w4isVH0ZQ7I6bFAaEyjeIPJe58un6",
-  role: "admin",
-};
+const users = [
+  {
+    email: "admin@example.com",
+    password:
+      "$2b$10$FmGnD/K.7egV1FmtCqZfE.I3w4isVH0ZQ7I6bFAaEyjeIPJe58un6",
+    role: "admin",
+  },
+  {
+    email: "user@example.com",
+    password:
+      "$2b$10$FmGnD/K.7egV1FmtCqZfE.I3w4isVH0ZQ7I6bFAaEyjeIPJe58un6",
+    role: "user",
+  },
+];
 
 export async function POST(request: Request) {
   try {
-    const { email, password, role, turnstileToken } = await request.json();
+    const body = await request.json();
+
+    const { email, password, turnstileToken } = body;
 
     if (!turnstileToken) {
       return NextResponse.json(
@@ -32,14 +43,16 @@ export async function POST(request: Request) {
       );
     }
 
-    if (email !== mockUser.email || role !== mockUser.role) {
+    const user = users.find((currentUser) => currentUser.email === email);
+
+    if (!user) {
       return NextResponse.json(
         { message: "Invalid credentials" },
         { status: 401 }
       );
     }
 
-    const isPasswordValid = await comparePasswords(password, mockUser.password);
+    const isPasswordValid = await comparePasswords(password, user.password);
 
     if (!isPasswordValid) {
       return NextResponse.json(
@@ -49,6 +62,8 @@ export async function POST(request: Request) {
     }
 
     const otpData = await createOtp();
+
+    saveOtp(email, otpData.otp);
 
     await sendOtpEmail(email, otpData.otp);
 
