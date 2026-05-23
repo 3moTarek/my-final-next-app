@@ -1,67 +1,116 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
 import { PublicLayout } from "@/layouts/PublicLayout";
 
 export default function LoginPage() {
+  const router = useRouter();
+
+  const [email, setEmail] =
+    useState("");
+
+  const [password, setPassword] =
+    useState("");
+
+  const [role, setRole] =
+    useState("user");
+
+  async function handleLogin(
+    event: React.FormEvent
+  ) {
+    event.preventDefault();
+
+    const response = await fetch(
+      "/api/auth/login",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body: JSON.stringify({
+          email,
+          password,
+          role,
+        }),
+      }
+    );
+
+    const data =
+      await response.json();
+
+    console.log(data);
+
+    if (data.success) {
+      router.push(
+        "/verify-otp"
+      );
+    }
+  }
+
   return (
     <PublicLayout>
       <section className="mx-auto flex min-h-[70vh] max-w-md items-center px-6 py-16">
         <div className="w-full rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold">
             Login
           </h1>
 
-          <p className="mt-2 text-sm text-gray-600">
-            Enter your email and password, then complete human verification.
-          </p>
+          <form
+            onSubmit={
+              handleLogin
+            }
+            className="mt-8 space-y-5"
+          >
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) =>
+                setEmail(
+                  e.target.value
+                )
+              }
+              className="w-full rounded-lg border px-4 py-3"
+            />
 
-          <form className="mt-8 space-y-5">
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                Email
-              </label>
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) =>
+                setPassword(
+                  e.target.value
+                )
+              }
+              className="w-full rounded-lg border px-4 py-3"
+            />
 
-              <input
-                type="email"
-                placeholder="user@example.com"
-                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-black"
-              />
-            </div>
+            <select
+              value={role}
+              onChange={(e) =>
+                setRole(
+                  e.target.value
+                )
+              }
+              className="w-full rounded-lg border px-4 py-3"
+            >
+              <option value="user">
+                User
+              </option>
 
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                Password
-              </label>
-
-              <input
-                type="password"
-                placeholder="Enter your password"
-                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-black"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                Role
-              </label>
-
-              <select className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-black">
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-
-            <div className="rounded-xl border border-gray-300 bg-gray-50 p-4">
-              <p className="text-sm font-medium text-gray-800">
-                Cloudflare Turnstile
-              </p>
-
-              <p className="mt-1 text-xs text-gray-500">
-                Human verification will be integrated here before login.
-              </p>
-            </div>
+              <option value="admin">
+                Admin
+              </option>
+            </select>
 
             <button
               type="submit"
-              className="w-full rounded-lg bg-black px-4 py-3 font-medium text-white transition hover:bg-gray-800"
+              className="w-full rounded-lg bg-black px-4 py-3 text-white"
             >
               Continue to OTP
             </button>
