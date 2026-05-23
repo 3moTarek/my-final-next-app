@@ -1,17 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { createOtp } from "@/lib/auth";
-import { comparePasswords } from "@/lib/hash";
-import { sendOtpEmail } from "@/lib/email";
-
-const mockUser = {
-  email: "admin@example.com",
-
-  password:
-    "$2b$10$FmGnD/K.7egV1FmtCqZfE.I3w4isVH0ZQ7I6bFAaEyjeIPJe58un6",
-
-  role: "admin",
-};
+import { generateToken } from "@/lib/jwt";
 
 export async function POST(
   request: Request
@@ -20,20 +9,12 @@ export async function POST(
     const body =
       await request.json();
 
-    const {
-      email,
-      password,
-      role,
-    } = body;
+    const { otp } = body;
 
-    if (
-      email !== mockUser.email ||
-      role !== mockUser.role
-    ) {
+    if (otp !== "123456") {
       return NextResponse.json(
         {
-          message:
-            "Invalid credentials",
+          message: "Invalid OTP",
         },
         {
           status: 401,
@@ -41,40 +22,32 @@ export async function POST(
       );
     }
 
-    const isPasswordValid =
-      await comparePasswords(
-        password,
-        mockUser.password
-      );
+    const token =
+      generateToken({
+        email:
+          "admin@example.com",
 
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        {
-          message:
-            "Invalid credentials",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
+        role: "admin",
+      });
 
-    const otpData =
-      await createOtp();
+    const response =
+      NextResponse.json({
+        success: true,
+      });
 
-    await sendOtpEmail(
-      email,
-      otpData.otp
+    response.cookies.set(
+      "token",
+      token,
+      {
+        httpOnly: true,
+        secure: false,
+        sameSite: "strict",
+        path: "/",
+      }
     );
 
-    return NextResponse.json({
-      success: true,
-      message:
-        "OTP sent successfully",
-    });
-  } catch (error) {
-    console.error(error);
-
+    return response;
+  } catch {
     return NextResponse.json(
       {
         message:
