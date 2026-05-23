@@ -3,20 +3,24 @@ type OtpRecord = {
   expiresAt: number;
 };
 
-const otpStore = new Map<
-  string,
-  OtpRecord
->();
+const globalOtpStore = globalThis as typeof globalThis & {
+  librarySystemOtpStore?: Map<string, OtpRecord>;
+};
+
+const otpStore =
+  globalOtpStore.librarySystemOtpStore ??
+  new Map<string, OtpRecord>();
+
+globalOtpStore.librarySystemOtpStore = otpStore;
 
 export function saveOtp(
   email: string,
-  otp: string
+  otp: string,
+  expiresAt: number
 ) {
   otpStore.set(email, {
     otp,
-    expiresAt:
-      Date.now() +
-      5 * 60 * 1000,
+    expiresAt,
   });
 }
 

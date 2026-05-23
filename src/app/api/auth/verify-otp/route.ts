@@ -1,47 +1,58 @@
 import { NextResponse } from "next/server";
 
 import { generateToken } from "@/lib/jwt";
+import { verifyOtp } from "@/lib/otpStore";
+import { findUserByEmail, normalizeEmail } from "@/lib/users";
 
-export async function POST(
-  request: Request
-) {
+export async function POST(request: Request) {
   try {
-    const body =
-      await request.json();
+    const body = await request.json();
 
-    const { otp } = body;
+    const { email, otp } = body;
 
-    if (otp !== "123456") {
+    if (!email || !otp) {
       return NextResponse.json(
-        {
-          message: "Invalid OTP",
-        },
-        {
-          status: 401,
-        }
+        { message: "Email and OTP are required" },
+        { status: 400 }
       );
     }
 
-    const token =
-      generateToken({
-        email:
-          "admin@example.com",
-        role: "admin",
-      });
+    const normalizedEmail = normalizeEmail(email);
+    const user = findUserByEmail(normalizedEmail);
 
-    return NextResponse.json({
-      success: true,
-      token,
+    if (
+      !user ||
+      !verifyOtp(normalizedEmail, otp)
+    ) {
+      return NextResponse.json(
+        { message: "Invalid or expired OTP" },
+        { status: 401 }
+      );
+    }
+
+    const token = generateToken({
+      email: user.email,
+      role: user.role,
     });
+
+    const response = NextResponse.json({
+      success: true,
+      role: user.role,
+    });
+
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24,
+      path: "/",
+    });
+
+    return response;
   } catch {
     return NextResponse.json(
-      {
-        message:
-          "Internal server error",
-      },
-      {
-        status: 500,
-      }
+      { message: "Internal server error" },
+      { status: 500 }
     );
   }
 }

@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import jwt from "jsonwebtoken";
+import { jwtVerify } from "jose";
 
-export function middleware(request: NextRequest) {
+const secret = new TextEncoder().encode(
+  process.env.JWT_SECRET ||
+    "development_secret"
+);
+
+export async function middleware(request: NextRequest) {
   const token = request.cookies.get("token")?.value;
   const pathname = request.nextUrl.pathname;
 
@@ -11,12 +16,9 @@ export function middleware(request: NextRequest) {
   }
 
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET!
-    ) as { role: string };
+    const { payload } = await jwtVerify(token, secret);
 
-    if (pathname.startsWith("/admin") && decoded.role !== "admin") {
+    if (pathname.startsWith("/admin") && payload.role !== "admin") {
       return NextResponse.redirect(new URL("/books", request.url));
     }
 

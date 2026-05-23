@@ -5,27 +5,22 @@ import { comparePasswords } from "@/lib/hash";
 import { sendOtpEmail } from "@/lib/email";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { saveOtp } from "@/lib/otpStore";
-
-const users = [
-  {
-    email: "admin@example.com",
-    password:
-      "$2b$10$FmGnD/K.7egV1FmtCqZfE.I3w4isVH0ZQ7I6bFAaEyjeIPJe58un6",
-    role: "admin",
-  },
-  {
-    email: "user@example.com",
-    password:
-      "$2b$10$FmGnD/K.7egV1FmtCqZfE.I3w4isVH0ZQ7I6bFAaEyjeIPJe58un6",
-    role: "user",
-  },
-];
+import { findUserByEmail, normalizeEmail } from "@/lib/users";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
 
     const { email, password, turnstileToken } = body;
+
+    if (!email || !password) {
+      return NextResponse.json(
+        { message: "Email and password are required" },
+        { status: 400 }
+      );
+    }
+
+    const normalizedEmail = normalizeEmail(email);
 
     if (!turnstileToken) {
       return NextResponse.json(
@@ -43,7 +38,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = users.find((currentUser) => currentUser.email === email);
+    const user = findUserByEmail(normalizedEmail);
 
     if (!user) {
       return NextResponse.json(
@@ -63,13 +58,30 @@ export async function POST(request: Request) {
 
     const otpData = await createOtp();
 
-    saveOtp(email, otpData.otp);
+    saveOtp(
+      normalizedEmail,
+      otpData.otp,
+      otpData.expiresAt
+    );
 
-    await sendOtpEmail(email, otpData.otp);
+    try {
+      await sendOtpEmail(normalizedEmail, otpData.otp);
+    } catch (error) {
+      console.error(error);
+
+      return NextResponse.json(
+        {
+          message:
+            "Could not send OTP email. Check Gmail App Password configuration on the server.",
+        },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
       message: "OTP sent successfully",
+      email: normalizedEmail,
     });
   } catch (error) {
     console.error(error);

@@ -2,9 +2,14 @@ import { NextResponse } from "next/server";
 
 import type { NextRequest } from "next/server";
 
-import jwt from "jsonwebtoken";
+import { jwtVerify } from "jose";
 
-export function middleware(
+const secret = new TextEncoder().encode(
+  process.env.JWT_SECRET ||
+    "development_secret"
+);
+
+export async function middleware(
   request: NextRequest
 ) {
   const token =
@@ -17,9 +22,12 @@ export function middleware(
 
   if (
     !token &&
-    pathname.startsWith(
+    (pathname.startsWith(
       "/books"
-    )
+    ) ||
+      pathname.startsWith(
+        "/admin"
+      ))
   ) {
     return NextResponse.redirect(
       new URL(
@@ -30,24 +38,27 @@ export function middleware(
   }
 
   if (token) {
-    const decoded =
-      jwt.verify(
-        token,
-        process.env.JWT_SECRET!
-      ) as {
-        role: string;
-      };
+    try {
+      const { payload } =
+        await jwtVerify(token, secret);
 
-    if (
-      pathname.startsWith(
-        "/admin"
-      ) &&
-      decoded.role !==
-        "admin"
-    ) {
+      if (
+        pathname.startsWith(
+          "/admin"
+        ) &&
+        payload.role !== "admin"
+      ) {
+        return NextResponse.redirect(
+          new URL(
+            "/books",
+            request.url
+          )
+        );
+      }
+    } catch {
       return NextResponse.redirect(
         new URL(
-          "/books",
+          "/login",
           request.url
         )
       );
