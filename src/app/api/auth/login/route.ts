@@ -1,61 +1,67 @@
 import { NextResponse } from "next/server";
 
-import { generateToken } from "@/lib/jwt";
+import { createOtp } from "@/lib/auth";
+import { comparePasswords } from "@/lib/hash";
+import { sendOtpEmail } from "@/lib/email";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
-export async function POST(
-  request: Request
-) {
+const mockUser = {
+  email: "admin@example.com",
+  password:
+    "$2b$10$FmGnD/K.7egV1FmtCqZfE.I3w4isVH0ZQ7I6bFAaEyjeIPJe58un6",
+  role: "admin",
+};
+
+export async function POST(request: Request) {
   try {
-    const body =
-      await request.json();
+    const { email, password, role, turnstileToken } = await request.json();
 
-    const { otp } = body;
-
-    if (otp !== "123456") {
+    if (!turnstileToken) {
       return NextResponse.json(
-        {
-          message: "Invalid OTP",
-        },
-        {
-          status: 401,
-        }
+        { message: "Human verification is required" },
+        { status: 400 }
       );
     }
 
-    const token =
-      generateToken({
-        email:
-          "admin@example.com",
+    const isHuman = await verifyTurnstileToken(turnstileToken);
 
-        role: "admin",
-      });
+    if (!isHuman) {
+      return NextResponse.json(
+        { message: "Human verification failed" },
+        { status: 403 }
+      );
+    }
 
-    const response =
-      NextResponse.json({
-        success: true,
-      });
+    if (email !== mockUser.email || role !== mockUser.role) {
+      return NextResponse.json(
+        { message: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
 
-    response.cookies.set(
-      "token",
-      token,
-      {
-        httpOnly: true,
-        secure: false,
-        sameSite: "strict",
-        path: "/",
-      }
-    );
+    const isPasswordValid = await comparePasswords(password, mockUser.password);
 
-    return response;
-  } catch {
+    if (!isPasswordValid) {
+      return NextResponse.json(
+        { message: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
+
+    const otpData = await createOtp();
+
+    await sendOtpEmail(email, otpData.otp);
+
+    return NextResponse.json({
+      success: true,
+      message: "OTP sent successfully",
+    });
+  } catch (error) {
+    console.error(error);
+
     return NextResponse.json(
-      {
-        message:
-          "Internal server error",
-      },
-      {
-        status: 500,
-      }
+      { message: "Internal server error" },
+      { status: 500 }
     );
   }
 }
