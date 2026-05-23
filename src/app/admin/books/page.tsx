@@ -26,7 +26,7 @@ export default function AdminBooksPage() {
             </h1>
 
             <p className="mt-2 text-gray-600">
-              Create, update, and delete books.
+              Manage books with CRUD operations.
             </p>
           </div>
 
