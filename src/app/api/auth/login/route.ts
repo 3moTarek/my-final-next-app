@@ -1,59 +1,54 @@
 import { NextResponse } from "next/server";
-import { generateOtp } from "@/utils/generateOtp";
 
-export async function POST(
-  request: Request
-) {
+import { createOtp } from "@/lib/auth";
+import { comparePasswords } from "@/lib/hash";
+import { sendOtpEmail } from "@/lib/email";
+
+const mockUser = {
+  email: "admin@example.com",
+  password:
+    "$2b$10$FmGnD/K.7egV1FmtCqZfE.I3w4isVH0ZQ7I6bFAaEyjeIPJe58un6",
+  role: "admin",
+};
+
+export async function POST(request: Request) {
   try {
-    const body =
-      await request.json();
+    const body = await request.json();
 
-    const { email, password, role } =
-      body;
+    const { email, password, role } = body;
 
-    // Basic validation
-    if (!email || !password) {
+    if (email !== mockUser.email || role !== mockUser.role) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Email and password are required",
-        },
-        { status: 400 }
+        { message: "Invalid credentials" },
+        { status: 401 }
       );
     }
 
-    // TODO: Validate credentials against database
-    // For now, accept any email/password combination
-    // In production, hash passwords and verify against DB
-
-    // Generate OTP and store it
-    const otp = generateOtp();
-
-    // TODO: Store OTP in session/database with expiration
-    // and send it via email
-    console.log(
-      `OTP for ${email}: ${otp}`
+    const isPasswordValid = await comparePasswords(
+      password,
+      mockUser.password
     );
+
+    if (!isPasswordValid) {
+      return NextResponse.json(
+        { message: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
+
+    const otpData = await createOtp();
+
+    await sendOtpEmail(email, otpData.otp);
 
     return NextResponse.json({
       success: true,
-      message:
-        "Login successful. Check your email for OTP.",
-      email,
-      role,
+      message: "OTP sent successfully",
     });
   } catch (error) {
-    console.error(
-      "Login error:",
-      error
-    );
+    console.error(error);
+
     return NextResponse.json(
-      {
-        success: false,
-        message:
-          "Internal server error",
-      },
+      { message: "Internal server error" },
       { status: 500 }
     );
   }
